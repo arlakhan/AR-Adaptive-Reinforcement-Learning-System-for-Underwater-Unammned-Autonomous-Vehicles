@@ -1,0 +1,272 @@
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Simulation Parameters
+distance_km = 50
+checkpoints = 50
+fusion_strategies = ["acoustic_only", "acoustic_sonar", "acoustic_sonar_visual", "full_fusion"]
+comm_modes = ["short_range", "long_range"]
+methods = ["AARLSS", "ARLSM", "VRRLM"]
+runs = 30
+
+# Base parameters
+sensor_energy = {"acoustic": 1.0, "sonar": 2.0, "visual": 3.0, "depth_Z": 0.5}
+sensor_time = {"acoustic": 1.0, "sonar": 1.5, "visual": 2.0, "depth_Z": 0.2}
+fusion_cost = {"acoustic_only":1.0,"acoustic_sonar":2.0,"acoustic_sonar_visual":3.5,"full_fusion":5.0}
+
+method_params = {
+    "AARLSS":{"energy_mult":0.8,"time_mult":0.9,"resource_mult":0.85,"base_acc":0.92},
+    "ARLSM":{"energy_mult":1.0,"time_mult":1.0,"resource_mult":1.0,"base_acc":0.85},
+    "VRRLM":{"energy_mult":1.2,"time_mult":1.1,"resource_mult":1.15,"base_acc":0.78},
+}
+
+comm_params = {"short_range":{"energy":0.8,"time":1.0,"quality":0.95},
+               "long_range":{"energy":1.5,"time":1.5,"quality":0.80}}
+
+results = []
+
+# Monte Carlo Simulation
+for run in range(runs):
+    for method in methods:
+        for fusion in fusion_strategies:
+            for comm in comm_modes:
+                total_energy, total_time, resources, detections = 0,0,0,0
+                comm_quality = comm_params[comm]["quality"]
+                for _ in range(checkpoints):
+                    # Travel cost
+                    travel_energy, travel_time = 5.0, 2.0
+                    total_energy += travel_energy * method_params[method]["energy_mult"]
+                    total_time += travel_time * method_params[method]["time_mult"]
+
+                    # Depth sensor always active
+                    total_energy += sensor_energy["depth_Z"] * method_params[method]["energy_mult"]
+                    total_time += sensor_time["depth_Z"] * method_params[method]["time_mult"]
+
+                    # Fusion sensors
+                    if "acoustic" in fusion: 
+                        total_energy += sensor_energy["acoustic"]
+                        total_time += sensor_time["acoustic"]
+                    if "sonar" in fusion: 
+                        total_energy += sensor_energy["sonar"]
+                        total_time += sensor_time["sonar"]
+                    if "visual" in fusion: 
+                        total_energy += sensor_energy["visual"]
+                        total_time += sensor_time["visual"]
+
+                    # Fusion processing
+                    total_energy += fusion_cost[fusion] * method_params[method]["resource_mult"]
+                    resources += fusion_cost[fusion] * method_params[method]["resource_mult"]
+
+                    # Detection probability
+                    acc = method_params[method]["base_acc"] * comm_quality
+                    acc += np.random.normal(0,0.02)
+                    detections += acc > 0.8
+
+                    # Communication cost
+                    tx_energy = comm_params[comm]["energy"]
+                    tx_time = comm_params[comm]["time"]
+                    expected_tx = 1.0 / comm_quality
+                    total_energy += tx_energy * expected_tx
+                    total_time += tx_time * expected_tx
+
+                results.append({
+                    "run":run,"method":method,"fusion":fusion,"comm":comm,
+                    "energy":total_energy,"time":total_time,"resources":resources,
+                    "accuracy":detections/checkpoints
+                })
+
+df = pd.DataFrame(results)
+
+# === PLOTS ===
+sns.set_theme(style="whitegrid", palette="muted")
+
+# 1. Energy comparison
+plt.figure(figsize=(8,6))
+sns.barplot(data=df, x="method", y="energy", errorbar="sd")
+plt.title("Total Energy Consumption by Method", fontsize=14)
+plt.ylabel("Energy (units)")
+plt.xlabel("Method")
+plt.tight_layout()
+plt.show()
+
+# 2. Accuracy comparison
+plt.figure(figsize=(8,6))
+sns.boxplot(data=df, x="method", y="accuracy")
+plt.title("Detection Accuracy Distribution by Method", fontsize=14)
+plt.ylabel("Accuracy")
+plt.xlabel("Method")
+plt.tight_layout()
+plt.show()
+
+# 3. Time vs Communication mode
+plt.figure(figsize=(8,6))
+sns.barplot(data=df, x="comm", y="time", hue="method", errorbar="sd")
+plt.title("Mission Time by Communication Mode", fontsize=14)
+plt.ylabel("Time (units)")
+plt.xlabel("Communication Mode")
+plt.legend(title="Method")
+plt.tight_layout()
+plt.show()
+
+# 4. Energy by Fusion strategy
+plt.figure(figsize=(10,6))
+sns.lineplot(data=df, x="fusion", y="energy", hue="method", marker="o", errorbar="sd")
+plt.title("Energy Consumption by Fusion Strategy", fontsize=14)
+plt.ylabel("Energy (units)")
+plt.xlabel("Fusion Strategy")
+plt.tight_layout()
+plt.show()
+
+# 5. Accuracy by Fusion strategy
+plt.figure(figsize=(10,6))
+sns.lineplot(data=df, x="fusion", y="accuracy", hue="method", marker="o", errorbar="sd")
+plt.title("Accuracy by Fusion Strategy", fontsize=14)
+plt.ylabel("Accuracy")
+plt.xlabel("Fusion Strategy")
+plt.tight_layout()
+plt.show()
+
+
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Simulation Parameters
+distance_km = 50
+checkpoints = 50
+fusion_strategies = ["acoustic_only", "acoustic_sonar", "acoustic_sonar_visual", "full_fusion"]
+comm_modes = ["short_range", "long_range"]
+methods = ["AARLSS", "ARLSM", "VRRLM"]
+runs = 30
+
+# Base parameters
+sensor_energy = {"acoustic": 1.0, "sonar": 2.0, "visual": 3.0, "depth_Z": 0.5}
+sensor_time = {"acoustic": 1.0, "sonar": 1.5, "visual": 2.0, "depth_Z": 0.2}
+fusion_cost = {"acoustic_only":1.0,"acoustic_sonar":2.0,"acoustic_sonar_visual":3.5,"full_fusion":5.0}
+
+# === Updated method parameters (VRRLM accuracy now 0.87) ===
+method_params = {
+    "AARLSS":{"energy_mult":0.8,"time_mult":0.9,"resource_mult":0.85,"base_acc":0.92},
+    "ARLSM":{"energy_mult":1.0,"time_mult":1.0,"resource_mult":1.0,"base_acc":0.85},
+    "VRRLM":{"energy_mult":1.2,"time_mult":1.1,"resource_mult":1.15,"base_acc":0.87},
+}
+
+comm_params = {"short_range":{"energy":0.8,"time":1.0,"quality":0.95},
+               "long_range":{"energy":1.5,"time":1.5,"quality":0.80}}
+
+results = []
+
+# Monte Carlo Simulation
+for run in range(runs):
+    for method in methods:
+        for fusion in fusion_strategies:
+            for comm in comm_modes:
+                total_energy, total_time, resources, detections = 0,0,0,0
+                comm_quality = comm_params[comm]["quality"]
+                for _ in range(checkpoints):
+                    # Travel cost
+                    travel_energy, travel_time = 5.0, 2.0
+                    total_energy += travel_energy * method_params[method]["energy_mult"]
+                    total_time += travel_time * method_params[method]["time_mult"]
+
+                    # Depth sensor always active
+                    total_energy += sensor_energy["depth_Z"] * method_params[method]["energy_mult"]
+                    total_time += sensor_time["depth_Z"] * method_params[method]["time_mult"]
+
+                    # Fusion sensors
+                    if "acoustic" in fusion: 
+                        total_energy += sensor_energy["acoustic"]
+                        total_time += sensor_time["acoustic"]
+                    if "sonar" in fusion: 
+                        total_energy += sensor_energy["sonar"]
+                        total_time += sensor_time["sonar"]
+                    if "visual" in fusion: 
+                        total_energy += sensor_energy["visual"]
+                        total_time += sensor_time["visual"]
+
+                    # Fusion processing
+                    fusion_proc = fusion_cost[fusion] * method_params[method]["resource_mult"]
+                    total_energy += fusion_proc
+                    resources += fusion_proc
+
+                    # Detection probability
+                    acc = method_params[method]["base_acc"] * comm_quality
+                    acc += np.random.normal(0,0.02)
+                    detections += acc > 0.8
+
+                    # Communication cost
+                    tx_energy = comm_params[comm]["energy"]
+                    tx_time = comm_params[comm]["time"]
+                    expected_tx = 1.0 / comm_quality
+                    total_energy += tx_energy * expected_tx
+                    total_time += tx_time * expected_tx
+                    resources += 0.1 * expected_tx  # small compute resource for comm overhead
+
+                results.append({
+                    "run":run,"method":method,"fusion":fusion,"comm":comm,
+                    "energy":total_energy,"time":total_time,"resources":resources,
+                    "accuracy":detections/checkpoints
+                })
+
+df = pd.DataFrame(results)
+
+# === PLOTS ===
+sns.set_theme(style="whitegrid", palette="muted")
+
+# 1. Energy comparison
+plt.figure(figsize=(8,6))
+sns.barplot(data=df, x="method", y="energy", errorbar="sd")
+plt.title("Total Energy Consumption by Method", fontsize=14)
+plt.ylabel("Energy (units)")
+plt.xlabel("Method")
+plt.tight_layout()
+plt.show()
+
+# 2. Accuracy comparison
+plt.figure(figsize=(8,6))
+sns.boxplot(data=df, x="method", y="accuracy")
+plt.title("Detection Accuracy Distribution by Method", fontsize=14)
+plt.ylabel("Accuracy")
+plt.xlabel("Method")
+plt.tight_layout()
+plt.show()
+
+# 3. Time vs Communication mode
+plt.figure(figsize=(8,6))
+sns.barplot(data=df, x="comm", y="time", hue="method", errorbar="sd")
+plt.title("Mission Time by Communication Mode", fontsize=14)
+plt.ylabel("Time (units)")
+plt.xlabel("Communication Mode")
+plt.legend(title="Method")
+plt.tight_layout()
+plt.show()
+
+# 4. Energy by Fusion strategy
+plt.figure(figsize=(10,6))
+sns.lineplot(data=df, x="fusion", y="energy", hue="method", marker="o", errorbar="sd")
+plt.title("Energy Consumption by Fusion Strategy", fontsize=14)
+plt.ylabel("Energy (units)")
+plt.xlabel("Fusion Strategy")
+plt.tight_layout()
+plt.show()
+
+# 5. Accuracy by Fusion strategy
+plt.figure(figsize=(10,6))
+sns.lineplot(data=df, x="fusion", y="accuracy", hue="method", marker="o", errorbar="sd")
+plt.title("Accuracy by Fusion Strategy", fontsize=14)
+plt.ylabel("Accuracy")
+plt.xlabel("Fusion Strategy")
+plt.tight_layout()
+plt.show()
+
+# 6. === NEW: Resource Consumption by Method ===
+plt.figure(figsize=(8,6))
+sns.barplot(data=df, x="method", y="resources", errorbar="sd")
+plt.title("Resource Consumption by Method", fontsize=14)
+plt.ylabel("Resource Units")
+plt.xlabel("Method")
+plt.tight_layout()
+plt.show()
